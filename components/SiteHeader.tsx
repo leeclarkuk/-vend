@@ -1,0 +1,38 @@
+"use client";
+
+import Link from "next/link";
+import { SignInButton, UserButton } from "@clerk/nextjs";
+import { Authenticated, Unauthenticated, useConvexAuth, useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
+
+export default function SiteHeader() {
+  const { isAuthenticated } = useConvexAuth();
+  const me = useQuery(api.users.me, isAuthenticated ? {} : "skip");
+
+  return (
+    <header className="sticky top-0 z-20 border-b border-border bg-background/90 backdrop-blur">
+      <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-6">
+        <Link href="/" className="font-medium tracking-tight">
+          Vend
+        </Link>
+        <nav className="flex items-center gap-4 text-sm text-muted">
+          {me?.isAdmin ? (
+            <Link href="/admin" className="hover:text-foreground">
+              Events
+            </Link>
+          ) : null}
+          <Unauthenticated>
+            <SignInButton mode="modal">
+              <button className="rounded-md border border-border px-3 py-1.5 text-foreground hover:bg-surface">
+                Sign in
+              </button>
+            </SignInButton>
+          </Unauthenticated>
+          <Authenticated>
+            <UserButton />
+          </Authenticated>
+        </nav>
+      </div>
+    </header>
+  );
+}
