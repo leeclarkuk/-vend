@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, use, useState } from "react";
+import { FormEvent, use, useEffect, useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -19,6 +19,13 @@ export default function EventDetailPage({
   const updateEvent = useMutation(api.events.update);
   const addEmails = useMutation(api.eligibleEmails.addBatch);
   const addCodes = useMutation(api.codes.addBatch);
+  const [eventUrl, setEventUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (event?.slug) {
+      setEventUrl(`${window.location.origin}/${event.slug}`);
+    }
+  }, [event?.slug]);
 
   const [name, setName] = useState<string | null>(null);
   const [slug, setSlug] = useState<string | null>(null);
@@ -95,7 +102,7 @@ export default function EventDetailPage({
       <h1 className="mt-4 text-3xl font-medium tracking-tight">{event.name}</h1>
       <div className="mt-2 flex items-center gap-3">
         <p className="font-mono text-sm text-muted">/{event.slug}</p>
-        <CopyButton value={`/${event.slug}`} />
+        <CopyButton value={eventUrl ?? `/${event.slug}`} />
       </div>
 
       <section className="mt-8 grid grid-cols-3 gap-4">
@@ -162,9 +169,7 @@ export default function EventDetailPage({
       {message ? <p className="mt-4 text-sm text-muted">{message}</p> : null}
 
       <section className="mt-12">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-medium">Claims</h2>
-        </div>
+        <h2 className="text-lg font-medium">Claims</h2>
         <div className="mt-4 overflow-hidden rounded-lg border border-border">
           {event.claims.length === 0 ? (
             <p className="px-4 py-8 text-sm text-muted">No claims yet.</p>

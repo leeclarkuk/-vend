@@ -9,12 +9,6 @@ export default function AdminLayout({
 }: {
   children: ReactNode;
 }) {
-
-export default function AdminLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
   const { isAuthenticated } = useConvexAuth();
   const me = useQuery(api.users.me, isAuthenticated ? {} : "skip");
 
