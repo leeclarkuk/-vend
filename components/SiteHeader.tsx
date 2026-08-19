@@ -17,9 +17,14 @@ export default function SiteHeader() {
         </Link>
         <nav className="flex items-center gap-4 text-sm text-muted">
           {me?.isAdmin ? (
-            <Link href="/admin" className="hover:text-foreground">
-              Events
-            </Link>
+            <>
+              <Link href="/admin" className="hover:text-foreground">
+                Events
+              </Link>
+              <Link href="/admin/blacklist" className="hover:text-foreground">
+                Blacklist
+              </Link>
+            </>
           ) : null}
           <Unauthenticated>
             <SignInButton mode="modal">

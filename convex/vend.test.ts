@@ -184,3 +184,150 @@ test("duplicate emails and codes in a batch are skipped", async () => {
   expect(event?.eligibleCount).toBe(1);
   expect(event?.codeCount).toBe(2);
 });
+
+test("blacklisted email is rejected on upload and recorded as a hit", async () => {
+  const { admin } = setup();
+  await admin.mutation(api.blacklist.add, {
+    email: "blocked@x.com",
+    reason: "prior abuse",
+  });
+  const eventId = await seedEvent(admin);
+
+  const result = await admin.mutation(api.eligibleEmails.addBatch, {
+    eventId,
+    emails: ["blocked@x.com", "ok@x.com"],
+  });
+  expect(result).toEqual({ added: 1, flagged: 0, blacklisted: 1 });
+
+  const event = await admin.query(api.events.get, { eventId });
+  expect(event?.eligibleCount).toBe(1);
+
+  const hits = await admin.query(api.blacklist.listHitsForEvent, { eventId });
+  expect(hits).toHaveLength(1);
+  expect(hits[0].email).toBe("blocked@x.com");
+});
+
+test("un-blacklisting clears recorded hits", async () => {
+  const { admin } = setup();
+  await admin.mutation(api.blacklist.add, { email: "blocked@x.com" });
+  const eventId = await seedEvent(admin);
+  await admin.mutation(api.eligibleEmails.addBatch, {
+    eventId,
+    emails: ["blocked@x.com"],
+  });
+
+  const entries = await admin.query(api.blacklist.list);
+  expect(entries).toHaveLength(1);
+  expect(entries[0].hitCount).toBe(1);
+
+  await admin.mutation(api.blacklist.remove, {
+    blacklistId: entries[0]._id,
+  });
+
+  const hits = await admin.query(api.blacklist.listHitsForEvent, { eventId });
+  expect(hits).toHaveLength(0);
+});
+
+test("email already on another event's list is flagged, not added", async () => {
+  const { admin } = setup();
+  await seedEvent(admin, { slug: "hackathon-1", emails: ["dup@x.com"] });
+  const eventTwo = await seedEvent(admin, { slug: "hackathon-2" });
+
+  const result = await admin.mutation(api.eligibleEmails.addBatch, {
+    eventId: eventTwo,
+    emails: ["dup@x.com", "fresh@x.com"],
+  });
+  expect(result).toEqual({ added: 1, flagged: 1, blacklisted: 0 });
+
+  const event = await admin.query(api.events.get, { eventId: eventTwo });
+  expect(event?.eligibleCount).toBe(1);
+
+  const flagged = await admin.query(api.flaggedEmails.listForEvent, {
+    eventId: eventTwo,
+  });
+  expect(flagged).toHaveLength(1);
+  expect(flagged[0].email).toBe("dup@x.com");
+});
+
+test("approving a flagged email adds it to the eligible list", async () => {
+  const { admin, attendee } = setup();
+  await seedEvent(admin, { slug: "hackathon-1", emails: [ATTENDEE_EMAIL] });
+  const eventTwo = await seedEvent(admin, {
+    slug: "hackathon-2",
+    codes: ["CODE-TWO"],
+  });
+  await admin.mutation(api.eligibleEmails.addBatch, {
+    eventId: eventTwo,
+    emails: [ATTENDEE_EMAIL],
+  });
+
+  const [flaggedRow] = await admin.query(api.flaggedEmails.listForEvent, {
+    eventId: eventTwo,
+  });
+  await admin.mutation(api.flaggedEmails.approve, {
+    flaggedId: flaggedRow._id,
+  });
+
+  const event = await admin.query(api.events.get, { eventId: eventTwo });
+  expect(event?.eligibleCount).toBe(1);
+
+  const claim = await attendee.mutation(api.claim.claimForCurrentUser, {
+    slug: "hackathon-2",
+  });
+  expect(claim).toEqual({ status: "claimed", code: "CODE-TWO" });
+});
+
+test("rejecting a flagged email leaves it ineligible", async () => {
+  const { admin, attendee } = setup();
+  await seedEvent(admin, { slug: "hackathon-1", emails: [ATTENDEE_EMAIL] });
+  const eventTwo = await seedEvent(admin, {
+    slug: "hackathon-2",
+    codes: ["CODE-TWO"],
+  });
+  await admin.mutation(api.eligibleEmails.addBatch, {
+    eventId: eventTwo,
+    emails: [ATTENDEE_EMAIL],
+  });
+
+  const [flaggedRow] = await admin.query(api.flaggedEmails.listForEvent, {
+    eventId: eventTwo,
+  });
+  await admin.mutation(api.flaggedEmails.reject, {
+    flaggedId: flaggedRow._id,
+  });
+
+  const stillFlagged = await admin.query(api.flaggedEmails.listForEvent, {
+    eventId: eventTwo,
+  });
+  expect(stillFlagged).toHaveLength(0);
+
+  const claim = await attendee.mutation(api.claim.claimForCurrentUser, {
+    slug: "hackathon-2",
+  });
+  expect(claim).toEqual({ status: "ineligible" });
+});
+
+test("a blacklisted flagged email cannot be approved", async () => {
+  const { admin } = setup();
+  await seedEvent(admin, { slug: "hackathon-1", emails: ["dup@x.com"] });
+  const eventTwo = await seedEvent(admin, { slug: "hackathon-2" });
+  await admin.mutation(api.eligibleEmails.addBatch, {
+    eventId: eventTwo,
+    emails: ["dup@x.com"],
+  });
+  await admin.mutation(api.blacklist.add, { email: "dup@x.com" });
+
+  const [flaggedRow] = await admin.query(api.flaggedEmails.listForEvent, {
+    eventId: eventTwo,
+  });
+  await expect(
+    admin.mutation(api.flaggedEmails.approve, { flaggedId: flaggedRow._id }),
+  ).rejects.toThrow(/blacklisted/);
+});
+
+test("non-admin cannot manage the blacklist", async () => {
+  const { attendee } = setup();
+  await expect(
+    attendee.mutation(api.blacklist.add, { email: "someone@x.com" }),
+  ).rejects.toThrow(/Not authorised/);
+});
