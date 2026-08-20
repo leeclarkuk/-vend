@@ -4,6 +4,7 @@ export const RESERVED_SLUGS = new Set([
   "sign-up",
   "api",
   "new",
+  "blacklist",
 ]);
 
 export function slugify(value: string): string {

@@ -109,6 +109,12 @@ Clerk production does **not** accept `*.vercel.app`. Use a real hostname.
 
 Skip Convex preview deployments until the production claim path is boring.
 
+## Fraud controls
+
+**Cross-event duplicate flagging.** When emails are uploaded (pasted, one per line or comma-separated), any address that already appears on another event's eligible list is not added directly — it goes to a "Flagged for review" section on the manage-event page, where an organiser approves or rejects each one individually. Both decisions are recorded in the audit log. Upload results report how many addresses were flagged.
+
+**App-wide email blacklist.** Admins manage a blacklist at `/admin/blacklist`. A blacklisted address is rejected on every path that would add it to an event's eligible list after being blacklisted — uploads skip it (reported as `N rejected (blacklisted)`), and approving a flagged email for a blacklisted address fails with an error. Each rejected upload attempt is recorded and shown to event admins in a read-only "Blacklisted" card on the manage-event page. Addresses already on an event's list before being blacklisted are left untouched; un-blacklisting an address clears its recorded hits.
+
 ## How claiming works
 
 The attendee never types an email into Vend. `claimForCurrentUser` reads the verified email from the Clerk JWT, normalises it (trim + lowercase), and:
