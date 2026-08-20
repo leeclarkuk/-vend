@@ -12,6 +12,7 @@ import {
 } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import CopyButton from "@/components/CopyButton";
+import { isConvexConfigured } from "@/lib/convexConfigured";
 
 type ClaimResult =
   | { status: "claimed"; code: string }
@@ -20,6 +21,21 @@ type ClaimResult =
   | { status: "missing" };
 
 export default function ClaimPage() {
+  if (!isConvexConfigured()) {
+    return (
+      <main className="mx-auto max-w-xl px-6 py-24">
+        <h1 className="text-3xl font-medium tracking-tight">Backend not connected</h1>
+        <p className="mt-4 text-muted">
+          Claiming needs a real Convex deployment. This preview has no backend,
+          so codes cannot be issued.
+        </p>
+      </main>
+    );
+  }
+  return <ClaimPageInner />;
+}
+
+function ClaimPageInner() {
   const params = useParams<{ slug: string }>();
   const slug = params.slug;
   const event = useQuery(api.events.getPublic, slug ? { slug } : "skip");

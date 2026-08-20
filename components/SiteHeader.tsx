@@ -1,14 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { SignInButton, UserButton } from "@clerk/nextjs";
-import { Authenticated, Unauthenticated, useConvexAuth, useQuery } from "convex/react";
+import { SignInButton, SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
+import { useConvexAuth, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { isConvexConfigured } from "@/lib/convexConfigured";
 
 export default function SiteHeader() {
-  const { isAuthenticated } = useConvexAuth();
-  const me = useQuery(api.users.me, isAuthenticated ? {} : "skip");
-
   return (
     <header className="sticky top-0 z-20 border-b border-border bg-background/90 backdrop-blur">
       <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-6">
@@ -16,23 +14,32 @@ export default function SiteHeader() {
           Vend
         </Link>
         <nav className="flex items-center gap-4 text-sm text-muted">
-          {me?.isAdmin ? (
-            <Link href="/admin" className="hover:text-foreground">
-              Events
-            </Link>
-          ) : null}
-          <Unauthenticated>
+          {isConvexConfigured() ? <AdminLink /> : null}
+          <SignedOut>
             <SignInButton mode="modal">
               <button className="rounded-md border border-border px-3 py-1.5 text-foreground hover:bg-surface">
                 Sign in
               </button>
             </SignInButton>
-          </Unauthenticated>
-          <Authenticated>
+          </SignedOut>
+          <SignedIn>
             <UserButton />
-          </Authenticated>
+          </SignedIn>
         </nav>
       </div>
     </header>
+  );
+}
+
+function AdminLink() {
+  const { isAuthenticated } = useConvexAuth();
+  const me = useQuery(api.users.me, isAuthenticated ? {} : "skip");
+  if (!me?.isAdmin) {
+    return null;
+  }
+  return (
+    <Link href="/admin" className="hover:text-foreground">
+      Events
+    </Link>
   );
 }
