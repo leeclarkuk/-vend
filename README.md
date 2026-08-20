@@ -11,37 +11,104 @@ Admins paste an eligible email list and a pool of codes. Attendees open `/<slug>
 - Clerk for sign-in
 - Tailwind CSS
 
-## Local setup
+Admin UI is `/admin`. Claim URLs are `/<slug>`.
 
-1. Copy `.env.example` to `.env.local` and fill Clerk keys.
-2. Create a Clerk application with **Google** and **Email code** enabled. Turn passwords off unless you have a reason to keep them.
-3. In Clerk, add the Convex integration (or a JWT template named `convex`). The template must include the `email` claim. Copy the Issuer URL.
-4. Run `npx convex dev`. Create a Convex project when asked. This writes `NEXT_PUBLIC_CONVEX_URL`.
-5. On the Convex dashboard, set:
-   - `CLERK_JWT_ISSUER_DOMAIN` to the Clerk Issuer URL (for example `https://your-app.clerk.accounts.dev`)
-   - `ADMIN_EMAILS` to a comma-separated list of admin addresses
-6. `npm run dev`
+Do not commit `.env.local`. Never put API tokens in git.
 
-Admin UI is at `/admin`. Event claim URLs are `/<slug>`.
+## 1. Clerk and Convex (development)
 
-## Production
+### Clerk
 
-Vercel env:
+1. Create or claim a Clerk application (not the temporary keyless app).
+2. Enable **Google** and **Email code**. Leave passwords off.
+3. Add the Convex integration, or a JWT template named `convex`. The template must include the `email` claim.
+4. Copy the publishable key, secret key, and Issuer URL (`https://….clerk.accounts.dev`).
 
-- `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`
-- `CLERK_SECRET_KEY`
-- `NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in`
-- `NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up`
-- `NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL=/`
-- `NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL=/`
-- `NEXT_PUBLIC_CONVEX_URL` from the Convex production deployment
+### Local env
 
-Convex production env:
+Copy `.env.example` to `.env.local` and set:
 
-- `CLERK_JWT_ISSUER_DOMAIN` for the production Clerk instance
-- `ADMIN_EMAILS`
+```
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=
+CLERK_SECRET_KEY=
+NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in
+NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up
+NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL=/
+NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL=/
+```
 
-Point Clerk production at the Vercel domain. Deploy Convex with `npx convex deploy` (the Vercel Convex integration can do this on each build).
+### Convex
+
+```
+npx convex login
+npx convex dev
+```
+
+That creates the project and writes `NEXT_PUBLIC_CONVEX_URL`.
+
+On the Convex dashboard, Deployment Settings → Environment Variables:
+
+- `CLERK_JWT_ISSUER_DOMAIN` = the Clerk Issuer URL
+- `ADMIN_EMAILS` = the address you will sign in with (comma-separated if more than one)
+
+Then:
+
+```
+npm run dev
+```
+
+[`convex/auth.config.ts`](convex/auth.config.ts) reads `CLERK_JWT_ISSUER_DOMAIN`. [`convex/lib/auth.ts`](convex/lib/auth.ts) gates admin on `ADMIN_EMAILS`.
+
+## 2. Prove the claim path
+
+Against that live backend, on localhost, one event:
+
+1. Sign in as an `ADMIN_EMAILS` address. Open `/admin` → New event. Slug `smoke-1`.
+2. Eligible emails: that address plus a second address you control.
+3. Codes: `SMOKE-A` and `SMOKE-B`.
+4. Open `/smoke-1`, sign in with the eligible address, confirm you get a code.
+5. Refresh: same code. Admin claimed count stays 1.
+6. Sign in with an address that is not on the list: ineligible, no extra claim.
+
+If that fails, fix it before touching Vercel.
+
+## 3. Vercel (production)
+
+Clerk production does **not** accept `*.vercel.app`. Use a real hostname.
+
+### Convex production
+
+1. Create or open the production deployment.
+2. Set `CLERK_JWT_ISSUER_DOMAIN` and `ADMIN_EMAILS` on **production** (the production Clerk issuer, not `.accounts.dev`).
+3. Generate a production deploy key with `deployment:deploy`.
+
+### Clerk production
+
+1. Production instance: Google + email code, Convex JWT template with `email`.
+2. Allowed origin: the custom domain.
+3. Sign-in and sign-up paths: `/sign-in`, `/sign-up`.
+
+### Vercel
+
+[`vercel.json`](vercel.json) sets the build command to `npm run build:vercel`. That runs `npx convex deploy --cmd 'npm run build'` when `CONVEX_DEPLOY_KEY` is present, and a normal Next build otherwise so a holding page can still deploy.
+
+1. Import this GitHub repo (or merge to `main` if the project already exists).
+2. Production environment variables:
+
+   - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` / `CLERK_SECRET_KEY` (prod)
+   - `NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in`
+   - `NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up`
+   - `NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL=/`
+   - `NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL=/`
+   - `CONVEX_DEPLOY_KEY` = production deploy key, **Production** environment only
+
+   You do not need to set `NEXT_PUBLIC_CONVEX_URL` by hand. `npx convex deploy` injects it for the Next build.
+
+3. Attach the custom domain. Add that host in Clerk. Redeploy once DNS is live.
+
+4. On the live host: sign in, create one event, claim once, refresh, confirm the same code.
+
+Skip Convex preview deployments until the production claim path is boring.
 
 ## Fraud controls
 

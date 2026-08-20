@@ -3,12 +3,30 @@
 import { ReactNode } from "react";
 import { Authenticated, AuthLoading, Unauthenticated, useConvexAuth, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { isConvexConfigured } from "@/lib/convexConfigured";
 
 export default function AdminLayout({
   children,
 }: {
   children: ReactNode;
 }) {
+  if (!isConvexConfigured()) {
+    return (
+      <main className="mx-auto max-w-2xl px-6 py-16">
+        <h1 className="text-2xl font-medium">Backend not connected</h1>
+        <p className="mt-3 text-muted">
+          Admin needs a real Convex deployment. Run{" "}
+          <span className="font-mono text-foreground">npx convex login</span>{" "}
+          then <span className="font-mono text-foreground">npx convex dev</span>{" "}
+          and set NEXT_PUBLIC_CONVEX_URL.
+        </p>
+      </main>
+    );
+  }
+  return <AdminGate>{children}</AdminGate>;
+}
+
+function AdminGate({ children }: { children: ReactNode }) {
   const { isAuthenticated } = useConvexAuth();
   const me = useQuery(api.users.me, isAuthenticated ? {} : "skip");
 
