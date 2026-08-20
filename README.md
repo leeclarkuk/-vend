@@ -90,9 +90,10 @@ Clerk production does **not** accept `*.vercel.app`. Use a real hostname.
 
 ### Vercel
 
-1. Import this GitHub repo.
-2. Build command: `npm run build:vercel` (runs `npx convex deploy --cmd 'npm run build'`).
-3. Production environment variables:
+[`vercel.json`](vercel.json) sets the build command to `npm run build:vercel`. That runs `npx convex deploy --cmd 'npm run build'` when `CONVEX_DEPLOY_KEY` is present, and a normal Next build otherwise so a holding page can still deploy.
+
+1. Import this GitHub repo (or merge to `main` if the project already exists).
+2. Production environment variables:
 
    - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` / `CLERK_SECRET_KEY` (prod)
    - `NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in`
@@ -103,9 +104,9 @@ Clerk production does **not** accept `*.vercel.app`. Use a real hostname.
 
    You do not need to set `NEXT_PUBLIC_CONVEX_URL` by hand. `npx convex deploy` injects it for the Next build.
 
-4. Attach the custom domain. Add that host in Clerk. Redeploy once DNS is live.
+3. Attach the custom domain. Add that host in Clerk. Redeploy once DNS is live.
 
-5. On the live host: sign in, create one event, claim once, refresh, confirm the same code.
+4. On the live host: sign in, create one event, claim once, refresh, confirm the same code.
 
 Skip Convex preview deployments until the production claim path is boring.
 

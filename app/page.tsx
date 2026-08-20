@@ -4,6 +4,7 @@ import Link from "next/link";
 import { SignInButton, SignedIn, SignedOut } from "@clerk/nextjs";
 import { useConvexAuth, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { isClerkPublishableConfigured } from "@/lib/clerkConfigured";
 import { isConvexConfigured } from "@/lib/convexConfigured";
 
 export default function HomePage() {
@@ -16,7 +17,11 @@ export default function HomePage() {
         open the event link, sign in, and receive a code if they are on the
         list. The same email always gets the same code back.
       </p>
-      {isConvexConfigured() ? <HomeCta /> : <DisconnectedCta />}
+      {isConvexConfigured() && isClerkPublishableConfigured() ? (
+        <HomeCta />
+      ) : (
+        <DisconnectedCta />
+      )}
     </main>
   );
 }
@@ -59,18 +64,22 @@ function DisconnectedCta() {
         Convex is not connected in this preview, so claiming and the admin
         list are off. The page itself should still load.
       </p>
-      <div>
-        <SignedOut>
-          <SignInButton mode="modal">
-            <button className="rounded-md bg-accent px-4 py-2 text-sm text-background">
-              Sign in
-            </button>
-          </SignInButton>
-        </SignedOut>
-        <SignedIn>
-          <p className="text-sm text-muted">Signed in. Backend is not connected yet.</p>
-        </SignedIn>
-      </div>
+      {isClerkPublishableConfigured() ? (
+        <div>
+          <SignedOut>
+            <SignInButton mode="modal">
+              <button className="rounded-md bg-accent px-4 py-2 text-sm text-background">
+                Sign in
+              </button>
+            </SignInButton>
+          </SignedOut>
+          <SignedIn>
+            <p className="text-sm text-muted">
+              Signed in. Backend is not connected yet.
+            </p>
+          </SignedIn>
+        </div>
+      ) : null}
     </div>
   );
 }

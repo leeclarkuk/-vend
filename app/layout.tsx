@@ -5,6 +5,7 @@ import { dark } from "@clerk/themes";
 import ConvexClientProvider from "@/components/ConvexClientProvider";
 import SiteHeader from "@/components/SiteHeader";
 import { clerkAppearance } from "@/lib/clerkAppearance";
+import { isClerkConfigured } from "@/lib/clerkConfigured";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -27,24 +28,32 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const app = (
+    <ConvexClientProvider>
+      <SiteHeader />
+      {children}
+    </ConvexClientProvider>
+  );
+
   return (
     <html lang="en-GB" suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} min-h-screen bg-background antialiased`}
         suppressHydrationWarning
       >
-        <ClerkProvider
-          dynamic
-          appearance={{
-            baseTheme: dark,
-            ...clerkAppearance,
-          }}
-        >
-          <ConvexClientProvider>
-            <SiteHeader />
-            {children}
-          </ConvexClientProvider>
-        </ClerkProvider>
+        {isClerkConfigured() ? (
+          <ClerkProvider
+            dynamic
+            appearance={{
+              baseTheme: dark,
+              ...clerkAppearance,
+            }}
+          >
+            {app}
+          </ClerkProvider>
+        ) : (
+          app
+        )}
       </body>
     </html>
   );
